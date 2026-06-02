@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>US Appraisal — Calculatrice</title>
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="US Appraisal">
+<meta name="theme-color" content="#0d5c63">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal:    #0d5c63;
+    --teal-lt: #c8dfe1;
+    --sand:    #f5e6d3;
+    --sand-dk: #e8c9a0;
+    --ink:     #1a1a1a;
+    --muted:   #6b7280;
+    --bg:      #f0ede8;
+    --white:   #ffffff;
+    --red:     #c0392b;
+    --green:   #1a6b4a;
+    --border:  #d1cfc9;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2rem 1rem 3rem;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "calc"
+      "recalls"
+      "ws"
+      "km"
+      "cad";
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 420px;
+  }
+
+  @media (min-width: 860px) {
+    .layout {
+      grid-template-columns: 280px 280px 420px 380px 260px;
+      grid-template-areas:
+        "cad ws      calc kmval recalls"
+        "km  carguru calc kmval recalls";
+      max-width: 1700px;
+      align-items: start;
+      align-content: start;
+      margin: 0 auto;
+    }
+  }
+
+  .area-km      { grid-area: km; align-self: start; }
+  .area-calc    { grid-area: calc; }
+  .area-cad     { grid-area: cad; align-self: start; }
+
+  .layout .card { max-width: 100%; }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(13,92,99,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(13,92,99,.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .card {
+    position: relative;
+    z-index: 1;
+    background: var(--white);
+    border-radius: 2px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow:
+      0 2px 0 var(--teal),
+      0 8px 40px rgba(0,0,0,.12),
+      inset 0 0 0 1px var(--border);
+    overflow: hidden;
+    animation: rise .5s cubic-bezier(.22,1,.36,1) both;
+  }
+
+
+  /* ── Calculatrice MVAeur ── */
+  .km-val-row {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .55rem 1rem;
+    border-bottom: 1px dashed var(--border);
+  }
+  .km-val-num {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem;
+    color: var(--muted);
+    width: 1.2rem;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .km-val-input {
+    font-family: 'DM Mono', monospace;
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--ink);
+    flex: 1;
+    min-width: 0;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .35rem .4rem;
+    outline: none;
+    text-align: right;
+    transition: border-color .2s, box-shadow .2s;
+    -moz-appearance: textfield;
+  }
+  .km-val-input::-webkit-outer-spin-button,
+  .km-val-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .km-val-input:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(13,92,99,.12);
+  }
+  .km-val-sep {
+    font-size: .7rem;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .km-val-delete {
+    background: none;
+    border: none;
+    color: var(--border);
+    cursor: pointer;
+    font-size: .9rem;
+    padding: 0 .2rem;
+    flex-shrink: 0;
+    transition: color .15s;
+  }
+  .km-val-delete:hover { color: var(--red); }
+  .r2-bar-wrap {
+    height: 5px;
+    background: var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: .3rem;
+  }
+  .r2-bar {
+    height: 100%;
+    border-radius: 10px;
+    background: var(--green);
+    transition: width .5s ease;
+  }
+  .r2-bar.medium { background: #e6a817; }
+  .r2-bar.low    { background: var(--red); }
+
+  @keyframes rise {
+    from { opacity:0; transform: translateY(20px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  .header {
+    background: var(--teal);
+    padding: 1.1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .header-icon {
+    width: 34px; height: 34px;
+    background: rgba(255,255,255,.12);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .header-icon svg { width:17px; height:17px; fill:none; stroke:#fff; stroke-width:2; }
+  .header-label {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.5rem;
+    letter-spacing: .12em;
+    color: var(--white);
+    line-height: 1;
+  }
+  .header-sub {
+    font-size: .63rem;
+    color: rgba(255,255,255,.5);
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .section-title {
+    background: var(--teal-lt);
+    padding: .5rem 1.5rem;
+    font-size: .62rem;
+    font-weight: 600;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--teal);
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+  .section-title::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--teal);
+    flex-shrink: 0;
+  }
+
+  .row {
+    display: flex;
+    align-items: center;
+    padding: .65rem 1.5rem;
+    border-bottom: 1px dashed var(--border);
+    gap: .75rem;
+    transition: background .15s;
+  }
+  .row:hover { background: rgba(13,92,99,.025); }
+  .row-label {
+    flex: 1;
+    font-size: .78rem;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .input-wrap { display: flex; align-items: center; }
+  .currency-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: .64rem;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-right: none;
+    padding: .38rem .4rem;
+    border-radius: 3px 0 0 3px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  input[type="number"] {
+    font-family: 'DM Mono', monospace;
+    font-size: .88rem;
+    font-weight: 500;
+    color: var(--ink);
+    width: 128px;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 0 3px 3px 0;
+    padding: .38rem .5rem;
+    text-align: right;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  input[type="number"]:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(13,92,99,.12);
+  }
+  input.solo { border-radius: 3px; width: 128px; }
+
+  .computed {
+    font-family: 'DM Mono', monospace;
+    font-size: .92rem;
+    font-weight: 500;
+    color: var(--ink);
+    min-width: 128px;
+    text-align: right;
+  }
+  .computed.negative { color: var(--red); }
+
+  .row-highlight { background: #eef3f4; }
+  .row-highlight .row-label { color: var(--teal); font-weight: 600; }
+  .row-highlight .computed  { font-size: .96rem; }
+
+  .result-row {
+    background: var(--sand);
+    padding: .9rem 1.5rem;
+    display: flex;
+    align-items: center;
+    border-top: 2px solid var(--sand-dk);
+  }
+  .result-label {
+    flex: 1;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--teal);
+  }
+  .result-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.35rem;
+    font-weight: 500;
+    color: var(--ink);
+    transition: color .3s;
+  }
+  .result-value.negative { color: var(--red); }
+  .result-value.good     { color: var(--green); }
+
+  .footer {
+    padding: .6rem 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+  .btn-reset {
+    font-family: 'DM Sans', sans-serif;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .35rem .75rem;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-reset:hover { color: var(--teal); border-color: var(--teal); background: rgba(13,92,99,.05); }
+
+  .taux-meta { flex: 1; display: flex; flex-direction: column; gap: .16rem; }
+  .taux-status {
+    font-size: .58rem;
+    display: flex;
+    align-items: center;
+    gap: .26rem;
+    color: var(--muted);
+  }
+  .taux-status .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+  }
+  .taux-status.live { color: var(--green); }
+  .taux-status.live .dot { background: var(--green); animation: pulse 2s infinite; }
+  .taux-status.err  { color: var(--red); }
+  .taux-status.err  .dot { background: var(--red); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+  /* Desktop only — caché sur mobile */
+  @media (max-width: 859px) {
+    .desktop-only { display: none !important; }
+  }
+  /* ── Tab Bar Mobile ── */
+  .tab-bar { display: none; }
+
+  @media (max-width: 859px) {
+    body { padding-bottom: 4.5rem; }
+
+    /* Pages mobiles */
+    .mobile-page {
+      display: none;
+      flex-direction: column;
+      gap: 1.25rem;
+      width: 100%;
+      max-width: 420px;
+    }
+    .mobile-page.active { display: flex; }
+
+    /* Cacher le layout desktop sur mobile */
+    .layout { display: none !important; }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 100;
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      box-shadow: 0 -2px 12px rgba(0,0,0,.08);
+      height: 4rem;
+    }
+    .tab-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: .18rem;
+      cursor: pointer;
+      padding: .35rem .15rem;
+      border: none;
+      background: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background .12s;
+    }
+    .tab-item:active { background: rgba(13,92,99,.06); }
+    .tab-item.active .tab-icon { color: var(--teal); }
+    .tab-item.active .tab-label { color: var(--teal); font-weight: 700; }
+    .tab-icon { font-size: 1.25rem; color: var(--muted); line-height: 1; }
+    .tab-label {
+      font-size: .5rem;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+  }
+  /* Window Sticker */
+  .ws-btn-wrap {
+    flex: 1;
+    min-width: 180px;
+    padding: .85rem 1.5rem;
+    border-right: 1px dashed var(--border);
+    border-bottom: 1px dashed var(--border);
+    cursor: pointer;
+    transition: background .15s;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+  }
+  .ws-btn-wrap:hover { background: rgba(13,92,99,.04); }
+  .ws-logo {
+    font-family: 'DM Mono', monospace;
+    font-size: .65rem;
+    font-weight: 700;
+    color: var(--white);
+    background: var(--teal);
+    padding: .15rem .45rem;
+    border-radius: 3px;
+    display: inline-block;
+    letter-spacing: .08em;
+    margin-bottom: .15rem;
+  }
+  .ws-name {
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .ws-desc {
+    font-size: .62rem;
+    color: var(--muted);
+  }
+
+  .recall-link {
+    display: flex;
+    align-items: center;
+    gap: .65rem;
+    padding: .7rem 1.5rem;
+    border-bottom: 1px dashed var(--border);
+    text-decoration: none;
+    transition: background .15s;
+  }
+  .recall-link:hover { background: rgba(13,92,99,.04); }
+  .recall-link:last-of-type { border-bottom: none; }
+  .recall-logo {
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    background: var(--teal-lt);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: .65rem;
+    font-weight: 700;
+    color: var(--teal);
+    letter-spacing: .03em;
+  }
+  .recall-info { flex: 1; }
+  .recall-name {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .recall-desc {
+    font-size: .65rem;
+    color: var(--muted);
+    margin-top: .1rem;
+  }
+  .vin-wrap {
+    padding: .75rem 1.5rem;
+    border-bottom: 2px solid var(--teal-lt);
+    background: #f7fafa;
+  }
+  .vin-label {
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--teal);
+    margin-bottom: .4rem;
+  }
+  .vin-input-row {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+  }
+  .vin-input {
+    font-family: 'DM Mono', monospace;
+    font-size: .82rem;
+    font-weight: 500;
+    color: var(--ink);
+    flex: 1;
+    min-width: 0;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .42rem .6rem;
+    outline: none;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .vin-input::placeholder { color: var(--border); }
+  .vin-input:focus {
+    border-color: var(--teal);
+    box-shadow: 0 0 0 3px rgba(13,92,99,.12);
+  }
+  .vin-clear {
+    font-size: .7rem;
+    color: var(--muted);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: .42rem .55rem;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .vin-clear:hover { color: var(--red); border-color: var(--red); }
+
+  .recall-arrow {
+    font-size: .8rem;
+    color: var(--teal-lt);
+  }
+  .area-recalls { grid-area: recalls; }
+  .area-ws      { grid-area: ws; }
+  .area-kmval   { grid-area: kmval; }
+  .area-carguru { grid-area: carguru; }
+
+  .badge {
+    font-size: .56rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: .1rem .3rem; border-radius: 20px;
+    vertical-align: middle; margin-left: .3rem;
+  }
+  .badge-us { background: rgba(13,92,99,.1); color: var(--teal); }
+  .badge-ca { background: rgba(232,201,160,.45); color: #7a5c1e; }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+<!-- ══ BLOC 1 — KM CONVERTER ══════════════════════════════ -->
+<div class="card area-km" id="section-km" style="animation-delay:.04s">
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>
+    </div>
+    <div>
+      <div class="header-label">KM Converter</div>
+      <div class="header-sub">Kilomètres → Miles</div>
+    </div>
+  </div>
+  <div class="section-title">Conversion</div>
+  <div class="row">
+    <span class="row-label">Kilométrage <span class="badge badge-ca">KM</span></span>
+    <div class="input-wrap">
+      <span class="currency-tag">km</span>
+      <input type="number" id="km" placeholder="0" min="0" step="1000" oninput="calcKm()">
+    </div>
+  </div>
+  <div class="result-row">
+    <span class="result-label">Miles</span>
+    <span class="result-value good" id="miles">0</span>
+  </div>
+  <div class="footer">
+    <button class="btn-reset" onclick="resetKm()">↺ Réinitialiser</button>
+  </div>
+</div>
+
+
+<!-- ══ BLOC 2 — CALCULATRICE US ═══════════════════════════ -->
+<div class="card area-calc" id="section-calc" style="animation-delay:.10s">
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M3 17l1-4h16l1 4"/><path d="M5 13V9a2 2 0 012-2h10a2 2 0 012 2v4"/><circle cx="7.5" cy="17.5" r="1.5"/><circle cx="16.5" cy="17.5" r="1.5"/></svg>
+    </div>
+    <div>
+      <div class="header-label">Calculatrice US</div>
+      <div class="header-sub">Évaluation export — marché américain</div>
+    </div>
+  </div>
+
+  <div class="section-title">MMR &amp; Taux de change</div>
+
+  <div class="row">
+    <span class="row-label">MMR <span class="badge badge-us">USD</span></span>
+    <div class="input-wrap">
+      <span class="currency-tag">$ US</span>
+      <input type="number" id="mmr" placeholder="0" min="0" step="100" oninput="calc()">
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="taux-meta">
+      <span class="row-label">Taux USD → CAD</span>
+      <span class="taux-status" id="tauxStatus">
+        <span class="dot"></span>
+        <span id="tauxStatusText">chargement…</span>
+      </span>
+    </div>
+    <div class="input-wrap">
+      <input type="number" id="taux" class="solo" placeholder="…" step="0.0001" min="1" oninput="calc(); calcCad();">
+    </div>
+  </div>
+
+  <!-- Valeur CAD = MMR × Taux -->
+  <div class="row row-highlight">
+    <span class="row-label">Valeur CAD</span>
+    <span class="computed" id="valeurCad">—</span>
+  </div>
+
+  <div class="section-title">Déduction fixe</div>
+
+  <div class="row">
+    <span class="row-label">Réduction taux <span class="badge badge-us">export</span></span>
+    <div class="input-wrap">
+      <input type="number" id="reductionTaux" class="solo" value="0.02" step="0.005" min="0" max="1" oninput="calc()">
+    </div>
+  </div>
+
+  <div class="row">
+    <span class="row-label">MMR − <span style="font-size:.7rem;color:var(--muted);font-weight:400">(CAD)</span></span>
+    <div class="input-wrap">
+      <span class="currency-tag">$ CA</span>
+      <input type="number" id="deduction" value="5000" step="100" min="0" oninput="calc()">
+    </div>
+  </div>
+
+  <!-- Valeur Export = MMR × (Taux − réduction) − Déduction -->
+  <div class="row row-highlight">
+    <span class="row-label">Valeur export</span>
+    <span class="computed" id="valeurExport">—</span>
+  </div>
+
+  <div class="section-title">Ajustements manuels</div>
+
+  <div class="row">
+    <span class="row-label">Ajustement</span>
+    <div class="input-wrap">
+      <span class="currency-tag">$ CA</span>
+      <input type="number" id="ajustement" placeholder="0" step="100" oninput="calc()">
+    </div>
+  </div>
+
+  <div class="row">
+    <span class="row-label">Dommages</span>
+    <div class="input-wrap">
+      <span class="currency-tag">$ CA</span>
+      <input type="number" id="dommages" placeholder="0" step="100" min="0" oninput="calc()">
+    </div>
+  </div>
+
+  <div class="row" style="border-bottom:none">
+    <span class="row-label">Frais</span>
+    <div class="input-wrap">
+      <span class="currency-tag">$ CA</span>
+      <input type="number" id="frais" placeholder="0" step="100" min="0" oninput="calc()">
+    </div>
+  </div>
+
+  <!-- Évaluation CAD = Valeur Export + Ajustement − Dommages − Frais -->
+  <div class="result-row">
+    <span class="result-label">Évaluation CAD</span>
+    <span class="result-value" id="evaluation">0 $</span>
+  </div>
+
+  <div class="footer">
+    <button class="btn-reset" onclick="resetCalc()">↺ Réinitialiser</button>
+  </div>
+</div>
+
+
+<!-- ══ BLOC 3 — CAD TO USD ════════════════════════════════ -->
+<div class="card area-cad" id="section-cad" style="animation-delay:.16s">
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+    </div>
+    <div>
+      <div class="header-label">CAD to USD</div>
+      <div class="header-sub">Dollar canadien → américain</div>
+    </div>
+  </div>
+  <div class="section-title">Conversion</div>
+  <div class="row">
+    <span class="row-label">Montant <span class="badge badge-ca">CAD</span></span>
+    <div class="input-wrap">
+      <span class="currency-tag">$ CA</span>
+      <input type="number" id="cadInput" placeholder="0" min="0" step="100" oninput="calcCad()">
+    </div>
+  </div>
+  <div class="result-row">
+    <span class="result-label">Valeur USD</span>
+    <span class="result-value good" id="usdResult">0 $</span>
+  </div>
+  <div class="footer">
+    <button class="btn-reset" onclick="resetCad()">↺ Réinitialiser</button>
+  </div>
+</div>
+
+
+<!-- ══ BLOC 4 — RAPPELS ══════════════════════════════════ -->
+<div class="card area-recalls" id="section-recalls" style="animation-delay:.22s">
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+      <div class="header-label">Rappels</div>
+      <div class="header-sub">Vérification par manufacturier</div>
+    </div>
+  </div>
+
+  <div class="section-title">Ford</div>
+
+  <div class="recall-link desktop-only" onclick="openFord()" style="cursor:pointer;">
+    <div class="recall-logo">FORD</div>
+    <div class="recall-info">
+      <div class="recall-name">Ford CA + USA</div>
+      <div class="recall-desc">ford.ca &amp; ford.com — 2 onglets</div>
+    </div>
+    <span class="recall-arrow">→→</span>
+  </div>
+
+  <a class="recall-link" href="https://www.ford.ca/support/recalls-details/" target="_blank">
+    <div class="recall-logo">FORD</div>
+    <div class="recall-info">
+      <div class="recall-name">Ford Canada</div>
+      <div class="recall-desc">ford.ca</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+
+  <a class="recall-link" href="https://www.ford.com/support/recalls-details/" target="_blank">
+    <div class="recall-logo">FORD</div>
+    <div class="recall-info">
+      <div class="recall-name">Ford USA</div>
+      <div class="recall-desc">ford.com</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+
+  <div class="section-title">Manufacturiers</div>
+
+  <a class="recall-link" href="https://www.toyota.com/recall/" target="_blank">
+    <div class="recall-logo">TYT</div>
+    <div class="recall-info">
+      <div class="recall-name">Toyota</div>
+      <div class="recall-desc">toyota.com</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+
+  <a class="recall-link" href="https://www.mopar.com/fr-ca/my-vehicle/recalls/search.html" target="_blank">
+    <div class="recall-logo">FCA</div>
+    <div class="recall-info">
+      <div class="recall-name">Mopar / Stellantis</div>
+      <div class="recall-desc">mopar.com</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+
+  <a class="recall-link" href="https://www.gmc.com/ownercenter/recalls" target="_blank">
+    <div class="recall-logo">GMC</div>
+    <div class="recall-info">
+      <div class="recall-name">GMC</div>
+      <div class="recall-desc">gmc.com</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+
+  <a class="recall-link" href="https://www.nissan.ca/service/vin-recall.html" target="_blank">
+    <div class="recall-logo">NIS</div>
+    <div class="recall-info">
+      <div class="recall-name">Nissan Canada</div>
+      <div class="recall-desc">nissan.ca</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+
+  <div class="section-title">Gouvernemental</div>
+
+  <a class="recall-link" href="https://www.nhtsa.gov/recalls" target="_blank" style="border-bottom:none">
+    <div class="recall-logo">NHTSA</div>
+    <div class="recall-info">
+      <div class="recall-name">NHTSA</div>
+      <div class="recall-desc">nhtsa.gov — tous véhicules</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+
+</div>
+
+
+<!-- ══ BLOC 5 — WINDOW STICKER ══════════════════════════════ -->
+<div class="card area-ws" id="section-ws" style="animation-delay:.28s;">
+    <div class="header">
+      <div class="header-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="none" stroke="#fff" stroke-width="2"/><path d="M3 9h18M9 21V9" stroke="#fff" stroke-width="2" fill="none"/></svg>
+      </div>
+      <div>
+        <div class="header-label">Window Sticker</div>
+        <div class="header-sub">PDF officiel par NIP — Ford · GM · Chrysler</div>
+      </div>
+    </div>
+
+    <div style="padding:.75rem 1.5rem; background:#f7fafa; border-bottom:1px dashed var(--border); display:flex; align-items:center; gap:.75rem;">
+      <span style="font-size:.62rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--teal);white-space:nowrap;">NIP / VIN</span>
+      <input type="text" id="wsVin" maxlength="17" placeholder=""
+        style="font-family:'DM Mono',monospace;font-size:.88rem;font-weight:500;flex:1;min-width:0;background:#fff;border:1px solid var(--border);border-radius:3px;padding:.38rem .6rem;outline:none;text-transform:uppercase;letter-spacing:.05em;"
+        oninput="this.value=this.value.toUpperCase()">
+      <button onclick="document.getElementById('wsVin').value=''" style="font-size:.7rem;color:var(--muted);background:none;border:1px solid var(--border);border-radius:3px;padding:.38rem .55rem;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+
+    <div style="display:flex; flex-wrap:wrap;">
+      <div class="ws-btn-wrap" onclick="openWS('ford')">
+        <div class="ws-logo">FORD</div>
+        <div class="ws-name">Ford</div>
+        <div class="ws-desc">windowsticker.forddirect.com</div>
+      </div>
+      <div class="ws-btn-wrap" onclick="openWS('gm')">
+        <div class="ws-logo">GM</div>
+        <div class="ws-name">GM / GMC / Chevrolet</div>
+        <div class="ws-desc">cws.gm.com</div>
+      </div>
+      <div class="ws-btn-wrap" onclick="openWS('chrysler')" style="border-right:none;">
+        <div class="ws-logo">FCA</div>
+        <div class="ws-name">Chrysler / Mopar</div>
+        <div class="ws-desc">chrysler.com</div>
+      </div>
+    </div>
+    <div id="wsStatus" style="font-size:.62rem;color:var(--red);padding:.3rem 1.5rem;min-height:1.1rem;"></div>
+</div>
+
+
+
+<!-- ══ BLOC CarGurus ══════════════════════════════════════ -->
+<div class="card area-carguru" id="section-carguru" style="animation-delay:.30s;">
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    </div>
+    <div>
+      <div class="header-label">CarGurus</div>
+      <div class="header-sub">Évaluation marché canadien</div>
+    </div>
+  </div>
+
+  <div class="section-title">Outil d'évaluation</div>
+
+  <a class="recall-link" href="https://www.cargurus.ca/fr/car-valuation" target="_blank" style="border-bottom:none;">
+    <div class="recall-logo" style="font-size:.55rem;">CAR<br>GURU</div>
+    <div class="recall-info">
+      <div class="recall-name">CarGurus Valuation</div>
+      <div class="recall-desc">cargurus.ca — valeur marché</div>
+    </div>
+    <span class="recall-arrow">→</span>
+  </a>
+</div>
+
+<!-- ══ BLOC 6 — CALCULATRICE KM/VALEUR ══════════════════════ -->
+<div class="card area-kmval" id="section-kmval" style="animation-delay:.32s;">
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/><path d="M5 12h2M17 12h2M12 5v2M12 17v2"/></svg>
+    </div>
+    <div>
+      <div class="header-label">MVA</div>
+      <div class="header-sub">Manual Value Appraisal</div>
+    </div>
+  </div>
+
+  <!-- KM cible + Résultat EN HAUT -->
+  <div class="section-title">Kilométrage cible</div>
+
+  <div class="row">
+    <span class="row-label">KM cible</span>
+    <div class="input-wrap">
+      <span class="currency-tag">km</span>
+      <input type="number" id="kmval-target" placeholder="0" min="0" step="1000" oninput="calcKmVal()" style="width:128px;">
+    </div>
+  </div>
+
+  <div class="result-row" style="flex-direction:column; align-items:stretch; gap:.4rem;">
+    <div style="display:flex; align-items:center;">
+      <span class="result-label">Valeur estimée</span>
+      <span class="result-value" id="kmval-result">—</span>
+    </div>
+    <div style="display:flex; align-items:center; justify-content:space-between; font-size:.65rem; color:var(--muted);">
+      <span id="kmval-r2-label">Fiabilité —</span>
+      <span id="kmval-points">0 données</span>
+    </div>
+    <div class="r2-bar-wrap">
+      <div class="r2-bar" id="kmval-r2-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Données comparables EN BAS -->
+  <div class="section-title">Données comparables</div>
+
+  <div id="kmval-rows"></div>
+
+  <div class="footer">
+    <button class="btn-reset" onclick="resetKmVal()">↺ Réinitialiser</button>
+  </div>
+</div>
+
+</div><!-- /.layout -->
+
+<script>
+  // ─── Formatage ──────────────────────────────────────
+  function fmtCAD(n) {
+    return n.toLocaleString('fr-CA', { style:'currency', currency:'CAD', maximumFractionDigits:0 });
+  }
+  function fmtUSD(n) {
+    return n.toLocaleString('en-US', { style:'currency', currency:'USD', maximumFractionDigits:0 });
+  }
+  function val(id, fallback = 0) {
+    const v = parseFloat(document.getElementById(id).value);
+    return isNaN(v) ? fallback : v;
+  }
+  function setComputed(id, amount) {
+    const el = document.getElementById(id);
+    if (amount === null) { el.textContent = '—'; el.className = 'computed'; return; }
+    el.textContent = fmtCAD(amount);
+    el.className = 'computed' + (amount < 0 ? ' negative' : '');
+  }
+
+  // ─── Taux en temps réel ─────────────────────────────
+  let tauxLive = null;
+
+  async function fetchTaux() {
+    const status     = document.getElementById('tauxStatus');
+    const statusText = document.getElementById('tauxStatusText');
+    const tauxInput  = document.getElementById('taux');
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const res  = await fetch('https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=1');
+      const data = await res.json();
+      const obs  = data.observations;
+      const latest = obs[obs.length - 1];
+      tauxLive = parseFloat(latest['FXUSDCAD'].v);
+      const date = latest.d;
+      tauxInput.value = tauxLive.toFixed(4);
+      status.className = 'taux-status live';
+      statusText.textContent = 'Banque du Canada · ' + date;
+      calc(); calcCad();
+    } catch(e) {
+      status.className = 'taux-status err';
+      statusText.textContent = 'Hors ligne — saisie manuelle';
+      if (!tauxInput.value) tauxInput.value = '1.3602';
+      calc();
+    }
+  }
+
+  fetchTaux();
+  setInterval(fetchTaux, 60 * 60 * 1000);
+
+  // ─── KM Converter ───────────────────────────────────
+  function calcKm() {
+    const km = val('km');
+    const el = document.getElementById('miles');
+    if (km <= 0) { el.textContent = '0'; return; }
+    el.textContent = Math.round(km * 0.621371).toLocaleString('fr-CA');
+  }
+
+  // ─── Calculatrice US ────────────────────────────────
+  // Valeur CAD    = MMR × Taux
+  // Valeur Export = MMR × (Taux − 0.02) − Déduction
+  // Évaluation    = Valeur Export + Ajustement − Dommages − Frais
+
+  function calc() {
+    const mmr      = val('mmr');
+    const taux     = val('taux', tauxLive || 1.3602);
+    const deduct   = val('deduction', 5000);
+    const ajust    = val('ajustement');
+    const dommages = val('dommages');
+    const frais    = val('frais');
+
+    if (mmr === 0) {
+      setComputed('valeurCad', null);
+      setComputed('valeurExport', null);
+      const ev = document.getElementById('evaluation');
+      ev.textContent = '0 $'; ev.className = 'result-value';
+      return;
+    }
+
+    const valeurCad    = mmr * taux;
+    const reduction  = val('reductionTaux', 0.02);
+    const valeurExport = mmr * (taux - reduction) - deduct;
+    const evaluation   = valeurExport + ajust - dommages - frais;
+
+    setComputed('valeurCad', valeurCad);
+    setComputed('valeurExport', valeurExport);
+
+    const ev = document.getElementById('evaluation');
+    ev.textContent = fmtCAD(evaluation);
+    ev.className = 'result-value' + (evaluation < 0 ? ' negative' : evaluation > 0 ? ' good' : '');
+  }
+
+  function resetCalc() {
+    // Conserver les valeurs de déduction fixe
+    const savedDeduction     = document.getElementById('deduction').value;
+    const savedReductionTaux = document.getElementById('reductionTaux').value;
+
+    ['mmr','ajustement','dommages','frais'].forEach(id => document.getElementById(id).value = '');
+
+    document.getElementById('deduction').value     = savedDeduction;
+    document.getElementById('reductionTaux').value = savedReductionTaux;
+
+    if (tauxLive) document.getElementById('taux').value = tauxLive.toFixed(4);
+    setComputed('valeurCad', null);
+    setComputed('valeurExport', null);
+    const ev = document.getElementById('evaluation');
+    ev.textContent = '0 $'; ev.className = 'result-value';
+  }
+
+  function resetKm() {
+    document.getElementById('km').value = '';
+    document.getElementById('miles').textContent = '0';
+  }
+
+  function resetCad() {
+    document.getElementById('cadInput').value = '';
+    document.getElementById('usdResult').textContent = '0 $';
+  }
+
+  // ─── Recall VIN links
+  function updateRecallLinks() {
+    // Rien à faire — Ford utilise openFord()
+  }
+
+  function openNhtsa() {
+    const vin = document.getElementById('vinInput').value.trim().toUpperCase();
+    const url = vin.length >= 10 ? `https://www.nhtsa.gov/vehicle/${vin}/results` : 'https://www.nhtsa.gov/recalls';
+    window.open(url, '_blank');
+  }
+
+  function openFordSingle(region) {
+    const vin = document.getElementById('vinInput').value.trim().toUpperCase();
+    const urls = {
+      ca: vin.length >= 10 ? `https://www.ford.ca/support/recalls-details/${vin}/` : 'https://www.ford.ca/support/recalls-details/',
+      us: vin.length >= 10 ? `https://www.ford.com/support/recalls-details/${vin}/` : 'https://www.ford.com/support/recalls-details/'
+    };
+    window.open(urls[region], '_blank');
+  }
+
+  function openFord() {
+    window.open('https://www.ford.ca/support/recalls-details/', '_blank');
+    window.open('https://www.ford.com/support/recalls-details/', '_blank');
+  }
+
+  // ─── CAD to USD ─────────────────────────────────────
+  function calcCad() {
+    const cad  = val('cadInput');
+    const taux = val('taux', tauxLive || 1.3602);
+    const el   = document.getElementById('usdResult');
+    if (cad <= 0 || taux <= 0) { el.textContent = '0 $'; return; }
+    el.textContent = fmtUSD(cad / taux);
+  }
+
+  // ─── Window Sticker ─────────────────────────────────
+  function openWS(brand) {
+    const vin = document.getElementById('wsVin').value.trim().toUpperCase();
+    const st  = document.getElementById('wsStatus');
+    if (vin.length < 17) {
+      st.textContent = '⚠ Entrez un NIP complet de 17 caractères';
+      setTimeout(() => st.textContent = '', 3000);
+      return;
+    }
+    st.textContent = '';
+    const urls = {
+      ford:    `https://www.windowsticker.forddirect.com/windowsticker.pdf?vin=${vin}`,
+      gm:      `https://cws.gm.com/vs-cws/vehshop/v2/vehicle/windowsticker?vin=${vin}`,
+      chrysler:`https://www.chrysler.com/hostd/windowsticker/getWindowStickerPdf.do?vin=${vin}`,
+    };
+    window.open(urls[brand], '_blank');
+  }
+
+
+  // ── Tab Bar — navigation par pages ──────────────────
+  function showPage(id) {
+    // Cacher toutes les pages mobiles
+    document.querySelectorAll('.mobile-page').forEach(p => p.classList.remove('active'));
+    // Afficher la page sélectionnée
+    const page = document.getElementById('mobile-' + id);
+    if (page) page.classList.add('active');
+    // Mettre à jour l'onglet actif
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    const tab = document.getElementById('tab-' + id);
+    if (tab) tab.classList.add('active');
+    // Scroll en haut
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+
+  // ── Pages mobiles — déplacer les cartes originales ──
+  (function() {
+    if (window.innerWidth > 859) return;
+
+    const order = ['calc','recalls','ws','km','cad','kmval','carguru'];
+    const container = document.createElement('div');
+    container.id = 'mobile-container';
+    container.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:1.25rem;padding:2rem 1rem 5rem;width:100%;';
+    document.body.insertBefore(container, document.querySelector('.tab-bar'));
+
+    order.forEach((id, i) => {
+      const page = document.createElement('div');
+      page.className = 'mobile-page' + (i === 0 ? ' active' : '');
+      page.id = 'mobile-' + id;
+      page.style.cssText = 'width:100%;max-width:420px;';
+
+      const src = document.getElementById('section-' + id);
+      if (src) {
+        src.style.maxWidth = '100%';
+        src.style.width = '100%';
+        page.appendChild(src); // Déplacer la vraie carte (pas un clone)
+      }
+      container.appendChild(page);
+    });
+  })();
+
+
+  // ── Calculatrice MVAeur ───────────────────────────
+  let kmValRows = 0;
+
+  function addKmValRow(km='', val='') {
+    const max = 10;
+    const container = document.getElementById('kmval-rows');
+    const count = container.querySelectorAll('.km-val-row').length;
+    if (count >= max) return;
+    kmValRows++;
+    const n = count + 1;
+    const row = document.createElement('div');
+    row.className = 'km-val-row';
+    row.innerHTML = `
+      <span class="km-val-num">${n}</span>
+      <input type="number" class="km-val-input" placeholder="KM" min="0" step="1000" value="${km}" oninput="calcKmVal()">
+      <span class="km-val-sep">→</span>
+      <input type="number" class="km-val-input" placeholder="$ Val" min="0" step="100" value="${val}" oninput="calcKmVal()">
+    `;
+    container.appendChild(row);
+    updateAddBtn();
+    calcKmVal();
+  }
+
+  function removeKmValRow(btn) {
+    const container = document.getElementById('kmval-rows');
+    btn.closest('.km-val-row').remove();
+    // Renuméroter
+    container.querySelectorAll('.km-val-num').forEach((el, i) => el.textContent = i + 1);
+    updateAddBtn();
+    calcKmVal();
+  }
+
+  function updateAddBtn() {
+    const container = document.getElementById('kmval-rows');
+    const count = container.querySelectorAll('.km-val-row').length;
+    const btn = document.getElementById('btn-add-kmval');
+    if (btn) btn.style.opacity = count >= 10 ? '.4' : '1';
+  }
+
+  function calcKmVal() {
+    const container = document.getElementById('kmval-rows');
+    const rows = container.querySelectorAll('.km-val-row');
+    const target = parseFloat(document.getElementById('kmval-target').value);
+    const result = document.getElementById('kmval-result');
+    const r2label = document.getElementById('kmval-r2-label');
+    const r2bar = document.getElementById('kmval-r2-bar');
+    const ptslabel = document.getElementById('kmval-points');
+
+    // Collecter les données valides
+    const data = [];
+    rows.forEach(row => {
+      const inputs = row.querySelectorAll('input');
+      const x = parseFloat(inputs[0].value);
+      const y = parseFloat(inputs[1].value);
+      if (!isNaN(x) && !isNaN(y) && x > 0 && y > 0) data.push([x, y]);
+    });
+
+    ptslabel.textContent = data.length + ' donnée' + (data.length > 1 ? 's' : '');
+
+    if (data.length < 3 || isNaN(target) || target <= 0) {
+      result.textContent = '—';
+      result.className = 'result-value';
+      r2label.textContent = 'Fiabilité — (min. 3 données)';
+      r2bar.style.width = '0%';
+      r2bar.className = 'r2-bar';
+      return;
+    }
+
+    // Régression linéaire
+    const n = data.length;
+    const sumX  = data.reduce((s, [x]) => s + x, 0);
+    const sumY  = data.reduce((s, [,y]) => s + y, 0);
+    const sumXY = data.reduce((s, [x,y]) => s + x*y, 0);
+    const sumXX = data.reduce((s, [x]) => s + x*x, 0);
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX**2);
+    const intercept = (sumY - slope * sumX) / n;
+    const predicted = slope * target + intercept;
+
+    // R²
+    const meanY = sumY / n;
+    const ssTot = data.reduce((s, [,y]) => s + (y - meanY)**2, 0);
+    const ssRes = data.reduce((s, [x,y]) => s + (y - (slope*x + intercept))**2, 0);
+    const r2 = Math.max(0, Math.min(1, 1 - ssRes / ssTot));
+    const r2pct = Math.round(r2 * 100);
+
+    if (predicted <= 0) {
+      result.textContent = 'N/A';
+      result.className = 'result-value negative';
+    } else {
+      result.textContent = fmtCAD(predicted);
+      result.className = 'result-value' + (predicted > 0 ? ' good' : '');
+    }
+
+    r2label.textContent = `Fiabilité ${r2pct}%`;
+    r2bar.style.width = r2pct + '%';
+    r2bar.className = 'r2-bar' + (r2pct >= 70 ? '' : r2pct >= 40 ? ' medium' : ' low');
+  }
+
+  function resetKmVal() {
+    // Vider les valeurs mais garder les 10 lignes
+    const container = document.getElementById('kmval-rows');
+    container.querySelectorAll('input').forEach(inp => inp.value = '');
+    document.getElementById('kmval-target').value = '';
+    document.getElementById('kmval-result').textContent = '—';
+    document.getElementById('kmval-result').className = 'result-value';
+    document.getElementById('kmval-r2-label').textContent = 'Fiabilité —';
+    document.getElementById('kmval-r2-bar').style.width = '0%';
+    document.getElementById('kmval-points').textContent = '0 données';
+  }
+
+  // Initialiser avec 10 lignes vides
+  for(let i=0;i<10;i++) addKmValRow();
+
+</script>
+
+<!-- ── Tab Bar Mobile ── -->
+<nav class="tab-bar">
+  <button class="tab-item active" onclick="showPage('calc')" id="tab-calc">
+    <span class="tab-icon">🚗</span>
+    <span class="tab-label">Calculatrice</span>
+  </button>
+  <button class="tab-item" onclick="showPage('recalls')" id="tab-recalls">
+    <span class="tab-icon">⚠️</span>
+    <span class="tab-label">Rappels</span>
+  </button>
+  <button class="tab-item" onclick="showPage('ws')" id="tab-ws">
+    <span class="tab-icon">🪟</span>
+    <span class="tab-label">Sticker</span>
+  </button>
+  <button class="tab-item" onclick="showPage('km')" id="tab-km">
+    <span class="tab-icon">📏</span>
+    <span class="tab-label">KM</span>
+  </button>
+  <button class="tab-item" onclick="showPage('cad')" id="tab-cad">
+    <span class="tab-icon">💵</span>
+    <span class="tab-label">CAD→USD</span>
+  </button>
+  <button class="tab-item" onclick="showPage('carguru')" id="tab-carguru">
+    <span class="tab-icon">🔍</span>
+    <span class="tab-label">CarGurus</span>
+  </button>
+  <button class="tab-item" onclick="showPage('kmval')" id="tab-kmval">
+    <span class="tab-icon">📊</span>
+    <span class="tab-label">MVA</span>
+  </button>
+</nav>
+
+</body>
+</html>
