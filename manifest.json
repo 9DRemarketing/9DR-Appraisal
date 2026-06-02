@@ -1,8 +1,9 @@
 {
   "name": "US Appraisal",
   "short_name": "US Appraisal",
-  "description": "Calculatrice \u00e9valuation v\u00e9hicule export US",
-  "start_url": "/",
+  "description": "Calculatrice évaluation véhicule export US",
+  "start_url": "/9DR-Appraisal/",
+  "scope": "/9DR-Appraisal/",
   "display": "standalone",
   "background_color": "#0d5c63",
   "theme_color": "#0d5c63",
