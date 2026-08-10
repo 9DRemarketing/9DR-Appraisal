@@ -648,7 +648,7 @@
     <span class="row-label">MMR − <span style="font-size:.7rem;color:var(--muted);font-weight:400">(CAD)</span></span>
     <div class="input-wrap">
       <span class="currency-tag">$ CA</span>
-      <input type="number" id="deduction" value="5000" step="100" min="0" oninput="calc()">
+      <input type="number" id="deduction" value="6000" step="100" min="0" oninput="calc()">
     </div>
   </div>
 
@@ -998,7 +998,7 @@
   function calc() {
     const mmr      = val('mmr');
     const taux     = val('taux', tauxLive || 1.3602);
-    const deduct   = val('deduction', 5000);
+    const deduct   = val('deduction', 6000);
     const ajust    = val('ajustement');
     const dommages = val('dommages');
     const frais    = val('frais');
