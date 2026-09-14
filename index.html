@@ -955,21 +955,50 @@
   // ─── Taux en temps réel ─────────────────────────────
   let tauxLive = null;
 
+  // Clé API gratuite Twelve Data (inscription : https://twelvedata.com/pricing → plan Free)
+  // Remplace la valeur ci-dessous par ta clé. Sans clé, la calculatrice retombe
+  // automatiquement sur le taux quotidien de la Banque du Canada.
+  const TWELVE_DATA_API_KEY = 'REMPLACE_PAR_TA_CLE';
+
+  async function fetchTauxLive() {
+    if (!TWELVE_DATA_API_KEY || TWELVE_DATA_API_KEY === 'REMPLACE_PAR_TA_CLE') {
+      throw new Error('Clé Twelve Data non configurée');
+    }
+    const res  = await fetch('https://api.twelvedata.com/quote?symbol=USD/CAD&apikey=' + TWELVE_DATA_API_KEY);
+    const data = await res.json();
+    if (data.status === 'error' || !data.close) throw new Error(data.message || 'Réponse invalide');
+    const rate = parseFloat(data.close);
+    if (!rate) throw new Error('Taux invalide');
+    const ts   = data.timestamp ? new Date(data.timestamp * 1000) : new Date();
+    const hhmm = ts.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
+    return { rate, label: 'Twelve Data · en direct · ' + hhmm };
+  }
+
+  async function fetchTauxBoC() {
+    const res  = await fetch('https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=1');
+    const data = await res.json();
+    const obs  = data.observations;
+    const latest = obs[obs.length - 1];
+    const rate = parseFloat(latest['FXUSDCAD'].v);
+    if (!rate) throw new Error('Taux invalide');
+    return { rate, label: 'Banque du Canada · ' + latest.d + ' (secours)' };
+  }
+
   async function fetchTaux() {
     const status     = document.getElementById('tauxStatus');
     const statusText = document.getElementById('tauxStatusText');
     const tauxInput  = document.getElementById('taux');
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const res  = await fetch('https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json?recent=1');
-      const data = await res.json();
-      const obs  = data.observations;
-      const latest = obs[obs.length - 1];
-      tauxLive = parseFloat(latest['FXUSDCAD'].v);
-      const date = latest.d;
+      let result;
+      try {
+        result = await fetchTauxLive();
+      } catch (liveErr) {
+        result = await fetchTauxBoC();
+      }
+      tauxLive = result.rate;
       tauxInput.value = tauxLive.toFixed(4);
       status.className = 'taux-status live';
-      statusText.textContent = 'Banque du Canada · ' + date;
+      statusText.textContent = result.label;
       calc(); calcCad();
     } catch(e) {
       status.className = 'taux-status err';
@@ -980,7 +1009,7 @@
   }
 
   fetchTaux();
-  setInterval(fetchTaux, 60 * 60 * 1000);
+  setInterval(fetchTaux, 5 * 60 * 1000);
 
   // ─── KM Converter ───────────────────────────────────
   function calcKm() {
